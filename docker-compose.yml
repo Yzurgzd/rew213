@@ -1,0 +1,53 @@
+version: "3"
+
+services:
+  db:
+    image: postgres:14.0-alpine
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+      - ./data/backups:/backups
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=963741852x
+      - POSTGRES_DB=museum
+  backend:
+    build: ./backend
+    command: gunicorn core.wsgi --bind 0.0.0.0:8000
+    volumes:
+      - ./backend/static:/backend/static
+      - ./backend/media:/backend/media
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+  redis:
+    image: redis:alpine
+  celery:
+    build: ./backend
+    command: celery -A core worker --loglevel=INFO
+    volumes:
+      - ./backend:/backend
+    depends_on:
+      - backend
+      - redis
+  frontend:
+    build: ./frontend
+    ports:
+      - 3000:3000
+    depends_on:
+      - backend
+  nginx:
+    build: ./nginx
+    volumes:
+      - ./backend/static:/backend/static
+      - ./backend/media:/backend/media
+    ports:
+      - 80:80
+    depends_on:
+      - db
+      - backend
+      - redis
+      - celery
+      - frontend
